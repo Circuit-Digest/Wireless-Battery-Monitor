@@ -302,9 +302,14 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 /* SPI Setup function */
 void setup_spi32() {
   SPI.begin();
+  /*
   SPI.setDataMode(SPI_MODE1);
   SPI.setBitOrder(MSBFIRST);             // MSB first.
   SPI.setClockDivider(SPI_CLOCK_DIV16);  // 1 Mhz Clk fo SPI. 16Mhz Div 16 = 1 Mhz.s
+  */
+  SPISettings mySPISettings(500000, MSBFIRST, SPI_MODE1); // 500 kHz speed, MSB first, Mode 1
+  // Begin SPI transaction with the defined settings
+  SPI.beginTransaction(mySPISettings);
   pinMode(_SS, OUTPUT);
 }
 
@@ -656,7 +661,7 @@ void loop() {
     WiFi.reconnect();
     previousMillis = currentMillis;
   }
-  
+  init_ad7280()
   /* Read cell voltages from AD7280, map it to corresponding variable and calculate charge status */
   int batteryVoltages[4];
   batteryVoltages[0] = ad7280_read_channel(&ADinst, AD7280A_DEVADDR_MASTER, AD7280A_CELL_VOLTAGE_1);
@@ -665,6 +670,11 @@ void loop() {
   batteryVoltages[2] = ad7280_read_channel(&ADinst, AD7280A_DEVADDR_MASTER, AD7280A_CELL_VOLTAGE_3);
   batteryVoltages[3] = ad7280_read_channel(&ADinst, AD7280A_DEVADDR_MASTER, AD7280A_CELL_VOLTAGE_6);
   int batteryPercentages[] = { map(batteryVoltages[0], 3200, 4200, 0, 100), map(batteryVoltages[1], 3200, 4200, 0, 100), map(batteryVoltages[2], 3200, 4200, 0, 100), map(batteryVoltages[3], 3200, 4200, 0, 100) };
+/*ignore any values with CRC error */
+  if(batteryPercentages[0] < 0 || batteryPercentages[1] < 0 || batteryPercentages[2] < 0 || batteryPercentages[3] < 0)
+  {
+	  return;
+  }
   if(millis() - lastMillis > 500)
   {
     for(int i = 0; i < 4; i++)
